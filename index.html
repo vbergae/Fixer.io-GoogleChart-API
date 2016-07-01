@@ -1,0 +1,175 @@
+<html>
+<head>
+<style>
+body {
+  font-family: Montserrat, sans-serif;
+  text-rendering: optimizeLegibility;
+  color: #444;
+  background: #eee;
+}
+
+.left {
+  float: left;
+  width: 15%;
+  margin: auto;
+  text-align: center;
+}
+
+#mytable {
+  border-radius: 20px;
+  float: left;
+  text-align: center;
+  min-width: 200px;
+  padding: 10px;
+  background: #34495E;
+  color: #fff;
+  box-shadow: 10px 10px 5px #888888;
+}
+#mytable thead > tr > td {
+  color: #dd5;
+  padding-bottom: 10px;
+}
+#mytable tr {
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-color: #46637f;
+}
+#mytable tr:hover {
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.right {
+    float: right;
+    margin: 20px;
+    width: 65%;
+    position: relative;
+    text-align: center;
+}
+
+.loading{
+	display:none;
+}
+
+</style>
+</head>
+<body>
+<div class="left">
+  <h3> Base currency: <span id="base_cur">EUR</span> </h3><h3>  
+    </h3><h4>Change currency</h4>
+  
+  <select id="base_sel" class="custom-select sources"></select>
+</div>
+      
+<table id="mytable">
+   <thead>
+       <tr> 
+        <td> Currency </td>
+        <td> Rate </td>
+     </tr>
+  </thead>
+  <tbody><tr></tr></tbody>
+  </table>
+
+ <div class="right">
+	<h3 class="title"> Evolution of currency exchange rate : <span></span> </h3>
+	<span class="loading">Loading .... </span>
+	<div id="chart"></div>
+  </div>
+
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+<script type="text/javascript" src="http://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script>
+google.load('visualization', '1', {
+    packages: [
+        'line',
+        'corechart'
+    ]
+});
+var months_offset = 5;
+var days_offset = 1;
+var base = 'EUR';
+get_rates();
+
+function get_rates() {
+    $.getJSON('http://api.fixer.io/latest?base=' + base, function (data) {
+        base = data.base;
+        $('table#mytable>tbody').html('');
+        $('span#base_cur').html(base);
+        $.each(data.rates, function (k, v) {
+            $('#mytable>tbody').append('<tr> <td>' + k + '</td><td> ' + v + '</td> </tr>');
+        });
+        keys = Object.keys(data.rates).sort();
+        $.each(keys, function (k, v) {
+            $('#base_sel').append('<option>' + v + '</option>');
+        });
+        $('body').show();
+    });
+}
+$('#base_sel').change(function () {
+    base = this.value;
+    $('#base_cur').html(base);
+    get_rates();
+});
+$('#mytable>tbody').delegate('tr', 'click', function () {
+	$('.loading').css('display', 'block');
+	var cur = $(this).children('td:first').html();
+    $('.title>span').html('(' + cur + ')');
+	DrawChart(get_history(cur));
+});
+
+
+function get_history(cur){
+	
+    var histo = [];
+    var date_now = new Date();
+    var date_from = new Date();
+    date_from.setMonth(date_from.getMonth() - months_offset);
+    while (date_from < date_now) {
+        date_from.setDate(date_from.getDate() + days_offset);
+        var date = date_from.toISOString().slice(0, 10);
+        $.ajax({
+            url: 'http://api.fixer.io/' + date + '/?base=' + base + '&symbols=' + cur,
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                var parts = data.date.split('-');
+				var el = [new Date(parts[0], parts[1] - 1, parts[2]), data.rates[cur]];
+				console.log(el);
+                histo.push(el);
+            }
+        });
+    }
+    return histo;
+}
+
+
+function DrawChart(data){
+    var content = new google.visualization.DataTable();
+    content.addColumn('date', 'Date');
+    content.addColumn('number', 'Rate');
+    $.each(data, function (k, v) {
+        content.addRow(v);
+    });
+    var options = {
+        axes: { x: { 0: { side: 'bottom' } } },
+        hAxis: {
+            title: 'Rates',
+            viewWindowMode: 'pretty',
+            slantedText: true,
+            textPosition: 'in'
+        },
+        vAxis: { title: 'Date' }
+    };
+    var formatter1 = new google.visualization.DateFormat({ formatType: 'medium' });
+    var formatter2 = new google.visualization.NumberFormat({ fractionDigits: 4 });
+    formatter1.format(content, 0);
+    formatter2.format(content, 1);
+	
+	
+	$('.loading').css('display', 'none'); //Hide loader
+	
+    var chart = new google.charts.Line(document.getElementById('chart'));
+    chart.draw(content, options);
+}
+</script>
