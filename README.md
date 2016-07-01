@@ -12,6 +12,6 @@ https://developers.google.com/chart/interactive/docs/gallery/linechart
 
 
 #Configuration
-Default base currency = EUR
-Default months_offset = 3; //From 3months ago
-Default days_offset = 1; //Every days
+Default base currency = EUR;
+Default months_offset = 3 (From 3months ago);
+Default days_offset = 1  (Every days);
